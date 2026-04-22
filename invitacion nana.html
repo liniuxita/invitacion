@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invitación Natalia</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:linear-gradient(#ffb6d5,#ffd6ea);
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+overflow:hidden;
+}
+
+.contenedor{
+position:relative;
+width:360px;
+animation:entrada 1.5s;
+}
+
+.contenedor img{
+width:100%;
+border-radius:20px;
+box-shadow:0 10px 30px rgba(0,0,0,0.3);
+}
+
+.nombre{
+position:absolute;
+top:25px;
+width:100%;
+text-align:center;
+font-size:40px;
+color:white;
+font-weight:bold;
+text-shadow:3px 3px 10px #ff0080;
+}
+
+.info{
+position:absolute;
+bottom:20px;
+width:100%;
+text-align:center;
+color:white;
+font-weight:bold;
+text-shadow:2px 2px 5px black;
+}
+
+button{
+padding:10px 18px;
+margin:5px;
+border:none;
+border-radius:20px;
+background:#ff4da6;
+color:white;
+font-weight:bold;
+cursor:pointer;
+transition:0.3s;
+}
+
+button:hover{
+transform:scale(1.1);
+background:#ff0080;
+}
+
+.contador{
+font-size:18px;
+margin-top:5px;
+}
+
+@keyframes entrada{
+from{
+opacity:0;
+transform:scale(0.7);
+}
+to{
+opacity:1;
+transform:scale(1);
+}
+}
+
+canvas{
+position:fixed;
+top:0;
+left:0;
+pointer-events:none;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<canvas id="confetti"></canvas>
+
+<!-- MUSICA -->
+
+<audio id="musica" loop>
+<source src="C:\Users\herna\Downloads\WhatsApp Audio 2026-04-21 at 10.47.31 PM.mpeg" type="audio/mpeg">
+</audio>
+
+<div class="contenedor">
+
+<img src="C:\Users\herna\Downloads\plantilla.jpeg">
+
+<div class="nombre">
+Natalia
+</div>
+
+<div class="info">
+
+<p>📅 3 de mayo</p>
+<p>🕛 12:00 PM</p>
+
+<div class="contador" id="contador"></div>
+
+<button onclick="abrirMapa()">📍 Ubicación</button> <button onclick="confirmar()">🎉 Confirmar</button> <button onclick="confirmarWhats()">💬 Confirmar por WhatsApp</button>
+
+</div>
+</div>
+
+<script>
+
+/* ACTIVAR MUSICA AL TOCAR LA PANTALLA */
+
+document.body.addEventListener("click", function() {
+let audio = document.getElementById("musica");
+audio.play();
+});
+
+/* MAPA */
+
+function abrirMapa(){
+window.open("https://maps.app.goo.gl/LBR9TZmQjPmf9rnv7");
+}
+
+/* CONFIRMACION SIMPLE */
+
+function confirmar(){
+alert("¡Gracias! Te esperamos en el cumpleaños de Natalia 🎂");
+}
+
+/* WHATSAPP */
+
+function confirmarWhats(){
+
+let mensaje = "Hola, confirmo mi asistencia al cumpleaños de Natalia el 3 de mayo a las 12:00 PM 🎉";
+
+let telefono = "523321157725"; // Reemplaza con el número de teléfono correcto
+
+let url = "https://wa.me/" + telefono + "?text=" + encodeURIComponent(mensaje);
+
+window.open(url);
+
+}
+
+/* CONTADOR */
+
+var fechaEvento = new Date("May 3, 2026 12:00:00").getTime();
+
+setInterval(function(){
+
+var ahora = new Date().getTime();
+var distancia = fechaEvento - ahora;
+
+var dias = Math.floor(distancia / (1000 * 60 * 60 * 24));
+var horas = Math.floor((distancia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+var minutos = Math.floor((distancia % (1000 * 60 * 60)) / (1000 * 60));
+
+document.getElementById("contador").innerHTML =
+"⏳ Faltan: "+dias+"d "+horas+"h "+minutos+"m";
+
+},1000);
+
+/* CONFETI */
+
+const canvas = document.getElementById('confetti');
+const ctx = canvas.getContext('2d');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let piezas = [];
+
+for(let i=0;i<120;i++){
+piezas.push({
+x:Math.random()*canvas.width,
+y:Math.random()*canvas.height,
+r:Math.random()*6+2
+});
+}
+
+function dibujar(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+ctx.fillStyle="pink";
+
+for(let i=0;i<piezas.length;i++){
+let p=piezas[i];
+ctx.beginPath();
+ctx.arc(p.x,p.y,p.r,0,Math.PI*2,true);
+ctx.fill();
+}
+
+mover();
+
+}
+
+function mover(){
+
+for(let i=0;i<piezas.length;i++){
+
+let p=piezas[i];
+p.y+=2;
+
+if(p.y>canvas.height){
+p.y=0;
+}
+
+}
+
+}
+
+setInterval(dibujar,20);
+
+</script>
+
+</body>
+</html>
