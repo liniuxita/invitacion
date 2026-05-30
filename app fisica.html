@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Comando y Telemetría - Simulador de Cohetes</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* Estilos de respaldo en caso de bloqueo de CDN */
+        body {
+            background-color: #020617;
+            color: #f8fafc;
+            font-family: monospace;
+        }
+        /* Animación de vibración para los propulsores del cohete */
+        @keyframes agitar {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(2px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(2px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .propulsion-activa {
+            animation: agitar 0.2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-mono selection:bg-cyan-500 selection:text-black">
+
+    <div class="container mx-auto px-4 py-6 max-w-6xl">
+        <header class="border-b border-cyan-500/30 pb-4 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-black tracking-wider text-cyan-400">
+                    ROCKET TELEMETRY INTERFACE
+                </h1>
+                <p class="text-xs text-cyan-400/70 uppercase tracking-widest">Sistema de Cálculo Cinemático y Simulación v3.1</p>
+            </div>
+            <div class="flex items-center gap-3 bg-slate-900 border border-cyan-500/20 px-4 py-2 rounded-md">
+                <span class="flex h-3 w-3 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span class="text-xs text-emerald-400 font-bold tracking-widest">SISTEMAS ONLINE</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-4 bg-slate-900 p-6 rounded-xl border border-cyan-500/30 shadow-lg flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="text-cyan-400 text-xl">⚙️</span>
+                        <h2 class="text-lg font-bold text-cyan-400 uppercase tracking-wider">Parámetros de Misión</h2>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Perfil de Vuelo</label>
+                        <select id="tipoMovimiento" class="w-full bg-slate-950 border border-cyan-500/40 rounded px-3 py-2 text-sm text-cyan-300 focus:border-cyan-400 outline-none cursor-pointer" onchange="adaptarFormulario()">
+                            <option value="mruv">Despegue Vertical Continuo (MRUV)</option>
+                            <option value="caida_libre">Falla de Motor / Caída Libre</option>
+                            <option value="tiro_vertical">Impulso Inicial / Apagado Inmediato (Tiro Vertical)</option>
+                        </select>
+                    </div>
+
+                    <div class="border-t border-slate-800 my-4"></div>
+
+                    <form id="formFisica" onsubmit="iniciarLanzamiento(event)" class="space-y-4">
+                        <div>
+                            <label id="lblPosicion" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Altitud Inicial (y0) [m]</label>
+                            <input type="number" id="posicionInicial" step="any" value="0" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-white focus:border-cyan-500 outline-none">
+                        </div>
+                        
+                        <div>
+                            <label id="lblVelocidad" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Velocidad Inicial (v0) [m/s]</label>
+                            <input type="number" id="velocidadInicial" step="any" value="10" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-white focus:border-cyan-500 outline-none">
+                        </div>
+
+                        <div id="divAceleracion">
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Empuje / Aceleración del Motor (a) [m/s²]</label>
+                            <input type="number" id="aceleracion" step="any" value="15" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-white focus:border-cyan-500 outline-none">
+                            <p class="text-[10px] text-slate-500 mt-0.5">*Ya descuenta el peso del cohete.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Tiempo de Monitoreo (t) [s]</label>
+                            <input type="number" id="tiempoTotal" step="any" value="8" min="0.5" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-white focus:border-cyan-500 outline-none">
+                        </div>
+
+                        <button type="submit" class="w-full mt-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-4 rounded uppercase tracking-widest text-xs transition duration-200 cursor-pointer active:scale-95">
+                            🚀 IGNICIÓN Y CÁLCULO
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="mt-6 p-3 bg-slate-950 border border-cyan-500/10 rounded text-[11px] text-cyan-400/70">
+                    Sistemas de ecuaciones resueltos bajo la constante de aceleración ideal en atmósfera cero.
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 space-y-6">
+                
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    
+                    <div class="md:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between items-center relative overflow-hidden h-[260px] shadow-inner">
+                        <span class="absolute top-2 left-2 text-[10px] text-slate-500 tracking-widest z-10">LIVE SIMULATION FEED</span>
+                        
+                        <div class="absolute right-2 top-4 text-[9px] text-slate-600">APOGEO —</div>
+                        <div class="absolute right-2 bottom-6 text-[9px] text-slate-600">LAUNCHPAD —</div>
+
+                        <div id="contenedorCohete" class="absolute bottom-6 transition-all duration-300 ease-out flex flex-col items-center" style="transform: translateY(0px);">
+                            <div class="text-3xl">🚀</div>
+                            <div id="fuegoCohete" class="text-orange-500 text-xs mt-[-4px] opacity-0">🔥</div>
+                        </div>
+
+                        <div class="w-full h-2 bg-slate-800 border-t border-cyan-500/20 absolute bottom-0 z-10"></div>
+                    </div>
+
+                    <div class="md:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+                            <span class="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">Altitud Final</span>
+                            <div>
+                                <span id="resPosicion" class="text-3xl font-black text-cyan-300">0.00</span>
+                                <span class="text-xs text-slate-400 ml-1">m</span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+                            <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Velocidad Terminal</span>
+                            <div>
+                                <span id="resVelocidad" class="text-3xl font-black text-amber-400">0.00</span>
+                                <span class="text-xs text-slate-400 ml-1">m/s</span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-between sm:col-span-2">
+                            <span class="text-[10px] text-fuchsia-400 font-bold uppercase tracking-wider">Apogeo de la Trayectoria (Altura Máxima)</span>
+                            <div class="flex items-baseline justify-between">
+                                <div>
+                                    <span id="resDetalle" class="text-2xl font-black text-fuchsia-400">0.00 m</span>
+                                </div>
+                                <span id="lblTiempoApogeo" class="text-xs text-slate-500">t_apogeo: 0s</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-xl">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Gráficos Analíticos Vectoriales</h3>
+                        <div class="flex gap-4 text-[11px]">
+                            <span class="text-cyan-400 font-bold">● Altitud (m)</span>
+                            <span class="text-amber-400 font-bold">▲ Velocidad (m/s)</span>
+                        </div>
+                    </div>
+                    <div class="relative w-full h-[300px]">
+                        <canvas id="graficoCoheteCanvas"></canvas>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let graficoTelemetria = null;
+        const g = 9.81; // Gravedad constante en m/s²
+
+        function adaptarFormulario() {
+            const tipo = document.getElementById('tipoMovimiento').value;
+            const divAceleracion = document.getElementById('divAceleracion');
+            const lblPosicion = document.getElementById('lblPosicion');
+            const lblVelocidad = document.getElementById('lblVelocidad');
+            
+            const txtPosicion = document.getElementById('posicionInicial');
+            const txtVelocidad = document.getElementById('velocidadInicial');
+
+            if (tipo === 'mruv') {
+                divAceleracion.style.display = 'block';
+                lblPosicion.innerHTML = 'Altitud Inicial (y0) [m]';
+                lblVelocidad.innerHTML = 'Velocidad Inicial (v0) [m/s]';
+                txtVelocidad.disabled = false;
+            } else if (tipo === 'caida_libre') {
+                divAceleracion.style.display = 'none';
+                lblPosicion.innerHTML = 'Altitud de Falla (y0) [m]';
+                lblVelocidad.innerHTML = 'Velocidad en el Momento del Fallo [m/s]';
+                txtVelocidad.value = 0; 
+                txtVelocidad.disabled = true;
+                if(txtPosicion.value == 0) txtPosicion.value = 200;
+            } else if (tipo === 'tiro_vertical') {
+                divAceleracion.style.display = 'none';
+                lblPosicion.innerHTML = 'Altitud de Apagado (y0) [m]';
+                lblVelocidad.innerHTML = 'Velocidad de Impulso (v0) [m/s]';
+                txtVelocidad.disabled = false;
+                if(txtVelocidad.value == 0) txtVelocidad.value = 50;
+            }
+        }
+
+        function iniciarLanzamiento(event) {
+            if (event) event.preventDefault();
+
+            const tipo = document.getElementById('tipoMovimiento').value;
+            let y0 = parseFloat(document.getElementById('posicionInicial').value) || 0;
+            let v0 = parseFloat(document.getElementById('velocidadInicial').value) || 0;
+            let tTotal = parseFloat(document.getElementById('tiempoTotal').value) || 5;
+            let a = 0;
+
+            if (tipo === 'mruv') {
+                a = parseFloat(document.getElementById('aceleracion').value) || 0;
+            } else if (tipo === 'caida_libre' || tipo === 'tiro_vertical') {
+                a = -g; 
+            }
+
+            const muestras = 60;
+            const dt = tTotal / muestras;
+            
+            const ejeTiempo = [];
+            const datosAltitud = [];
+            const datosVelocidad = [];
+
+            let altitudFinal = y0;
+            let velocidadFinal = v0;
+            let apogeo = y0;
+            let tiempoApogeo = 0;
+
+            if ((tipo === 'tiro_vertical' || (tipo === 'mruv' && a < 0)) && v0 > 0) {
+                tiempoApogeo = v0 / Math.abs(a);
+                apogeo = y0 + (v0 * v0) / (2 * Math.abs(a));
+                document.getElementById('resDetalle').innerText = `${apogeo.toFixed(2)} m`;
+                document.getElementById('lblTiempoApogeo').innerText = `t_apogeo: ${tiempoApogeo.toFixed(2)}s`;
+            } else if (tipo === 'mruv' && a >= 0) {
+                let t_f = tTotal;
+                apogeo = y0 + v0 * t_f + 0.5 * a * t_f * t_f;
+                document.getElementById('resDetalle').innerText = `${apogeo.toFixed(2)} m (En aumento)`;
+                document.getElementById('lblTiempoApogeo').innerText = `t_final: ${tTotal}s`;
+            } else {
+                document.getElementById('resDetalle').innerText = `${y0.toFixed(2)} m`;
+                document.getElementById('lblTiempoApogeo').innerText = `t_apogeo: 0.00s`;
+            }
+
+            for (let i = 0; i <= muestras; i++) {
+                let t = i * dt;
+                
+                let y_t = y0 + v0 * t + 0.5 * a * t * t;
+                let v_t = v0 + a * t;
+
+                if (y_t < 0) {
+                    if (i > 0 && datosAltitud[i-1] >= 0) {
+                        ejeTiempo.push(t.toFixed(2));
+                        datosAltitud.push(0);
+                        datosVelocidad.push(v_t.toFixed(2));
+                        altitudFinal = 0;
+                        velocidadFinal = v_t;
+                    }
+                    break;
+                }
+
+                ejeTiempo.push(t.toFixed(2));
+                datosAltitud.push(y_t.toFixed(2));
+                datosVelocidad.push(v_t.toFixed(2));
+
+                altitudFinal = y_t;
+                velocidadFinal = v_t;
+            }
+
+            document.getElementById('resPosicion').innerText = altitudFinal.toFixed(2);
+            document.getElementById('resVelocidad').innerText = velocidadFinal.toFixed(2);
+
+            construirGrafica(ejeTiempo, datosAltitud, datosVelocidad);
+            animarCoheteVisual(altitudFinal, apogeo, a);
+        }
+
+        function animarCoheteVisual(altitudFinal, apogeoMaximo, aceleracion) {
+            const cohete = document.getElementById('contenedorCohete');
+            const fuego = document.getElementById('fuegoCohete');
+
+            if (aceleracion > 0) {
+                cohete.classList.add('propulsion-activa');
+                fuego.style.opacity = '1';
+            } else {
+                cohete.classList.remove('propulsion-activa');
+                fuego.style.opacity = '0';
+            }
+
+            let divisor = apogeoMaximo > 0 ? apogeoMaximo : 100;
+            let porcentajeElevacion = (altitudFinal / divisor) * 180; 
+            if(porcentajeElevacion > 200) porcentajeElevacion = 200; 
+            if(porcentajeElevacion < 0) porcentajeElevacion = 0;
+
+            cohete.style.transform = `translateY(-${porcentajeElevacion}px)`;
+        }
+
+        function construirGrafica(labels, datosAlt, datosVel) {
+            const ctx = document.getElementById('graficoCoheteCanvas').getContext('2d');
+            
+            if (graficoTelemetria) {
+                graficoTelemetria.destroy();
+            }
+
+            graficoTelemetria = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Altitud (m)',
+                            data: datosAlt,
+                            borderColor: '#06b6d4', 
+                            backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                            borderWidth: 3,
+                            yAxisID: 'yAltitud',
+                            tension: 0.2,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Velocidad (m/s)',
+                            data: datosVel,
+                            borderColor: '#f59e0b', 
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            borderDash: [6, 4],
+                            yAxisID: 'yVelocidad',
+                            tension: 0.2,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'TIEMPO DE VUELO (S)', color: '#64748b' },
+                            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        yAltitud: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'ALTITUD NOMINAL (M)', color: '#06b6d4' },
+                            grid: { color: 'rgba(51, 65, 85, 0.4)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        yVelocidad: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'VELOCIDAD VECTORIAL (M/S)', color: '#f59e0b' },
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        window.onload = () => {
+            adaptarFormulario();
+            iniciarLanzamiento();
+        };
+    </script>
+</body>
+</html>
